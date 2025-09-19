@@ -20,10 +20,10 @@ def load_model():
 model = load_model()
 
 # --- App UI ---
-st.title("Machine Remaining Useful Life (RUL) Predictor 🔮")
+st.title("Machine Status Predictor 🔮")
 st.markdown("""
-    This application predicts the **Remaining Useful Life (RUL)** of a machine based on its current operational parameters.
-    The model was trained on a predictive maintenance dataset to forecast the time remaining until a potential failure.
+    This application predicts the status of a machine based on its operational parameters,
+    advising whether it is safe to use or if it requires immediate service.
 """)
 
 st.markdown("---")
@@ -43,7 +43,7 @@ tool_wear = st.sidebar.slider("Tool Wear [min]", min_value=0, max_value=250, val
 product_type = st.sidebar.selectbox("Product Type", options=['L', 'M', 'H'])
 
 # --- Prediction Button ---
-if st.sidebar.button("Predict RUL"):
+if st.sidebar.button("Predict Status"):
     # 1. Preprocess user inputs to match the model's training data format
     
     # Handle one-hot encoding for the 'Type' feature
@@ -79,18 +79,21 @@ if st.sidebar.button("Predict RUL"):
     })
     
     # 2. Make the prediction
-    prediction = model.predict(input_data)[0]
+    # We still use the RUL model, but now we interpret its output differently
+    predicted_rul = int(round(model.predict(input_data)[0]))
     
     # 3. Display the result
-    st.subheader("Predicted Remaining Useful Life (RUL)")
+    st.subheader("Machine Status")
     
-    # Round the prediction for a cleaner display
-    predicted_rul = int(round(prediction))
-
-    if predicted_rul < 0:
-        st.warning(f"The model predicts an imminent failure. RUL: **{max(0, predicted_rul)}** time units.")
+    # Define a simple threshold for RUL
+    service_threshold = 20 # Inferred from the dataset's scale
+    
+    if predicted_rul <= service_threshold:
+        st.error("Status: **Needs Service**")
+        st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{max(0, predicted_rul)}** time units.")
     else:
-        st.success(f"Predicted RUL: **{predicted_rul}** time units.")
+        st.success("Status: **Good to Use**")
+        st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{predicted_rul}** time units.")
         
     st.markdown("---")
     st.info("This prediction is an estimate based on the current operational data. Regular monitoring is recommended.")
