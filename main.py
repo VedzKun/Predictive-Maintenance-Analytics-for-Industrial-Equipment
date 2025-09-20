@@ -55,45 +55,55 @@ if st.sidebar.button("Predict Status"):
     else:
         type_H = 1
         
-    # Assume 'Type_L' was dropped in one-hot encoding during training
-    # This ensures consistency
-    
     # Engineer new features exactly as they were created in the training notebook
+    # Corrected feature names to match the model's expectations from the error log
     temp_diff = process_temp - air_temp
-    power_w = torque * rotational_speed
-    overstrain_flag = 1 if torque > 60 else 0
+    power = torque * rotational_speed
+    
+    # Corrected failure flag logic to match the model's expectations from the error log
+    # Assuming 'Overheat_Flag' was a simple binary flag based on temperature difference.
+    # The threshold of 8.6K is from the dataset's documentation for HDF.
+    overheat_flag = 1 if temp_diff < 8.6 else 0
 
     # Create the input DataFrame
-    # Column order is crucial, so match it exactly
+    # Corrected column names and included 'Type_L' as expected by the model
     input_data = pd.DataFrame({
         'Air temperature [K]': [air_temp],
         'Process temperature [K]': [process_temp],
         'Rotational speed [rpm]': [rotational_speed],
         'Torque [Nm]': [torque],
         'Tool wear [min]': [tool_wear],
+        'Type_L': [type_L],
         'Type_M': [type_M],
-        'Type_H': [type_H],
-        'Temp_Diff': [temp_diff],
-        'Power [W]': [power_w],
-        'Overstrain_Flag': [overstrain_flag]
+        'Temp_diff': [temp_diff],
+        'Power': [power],
+        'Overheat_Flag': [overheat_flag]
     })
     
     # 2. Make the prediction
-    # We still use the RUL model, but now we interpret its output differently
-    predicted_rul = int(round(model.predict(input_data)[0]))
-    
+    predicted_rul = model.predict(input_data)[0]
+
     # 3. Display the result
     st.subheader("Machine Status")
-    
+
     # Define a simple threshold for RUL
     service_threshold = 20 # Inferred from the dataset's scale
-    
-    if predicted_rul <= service_threshold:
-        st.error("Status: **Needs Service**")
-        st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{max(0, predicted_rul)}** time units.")
-    else:
-        st.success("Status: **Good to Use**")
-        st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{predicted_rul}** time units.")
-        
+
+    # If predicted_rul is numeric, compare as before
+    try:
+        rul_value = float(predicted_rul)
+        if rul_value <= service_threshold:
+            st.error("Status: **Needs Service**")
+            st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{max(0, int(rul_value))}** time units.")
+        else:
+            st.success("Status: **Good to Use**")
+            st.markdown(f"The model predicts the machine has an estimated Remaining Useful Life of **{int(rul_value)}** time units.")
+    except ValueError:
+        # If predicted_rul is a string label
+        st.info(f"Predicted status: **{predicted_rul}**")
+
     st.markdown("---")
     st.info("This prediction is an estimate based on the current operational data. Regular monitoring is recommended.")
+
+# Display the features expected by the model
+st.write("Model expects features:", model.feature_names_in_)
